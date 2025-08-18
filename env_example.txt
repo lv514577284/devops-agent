@@ -1,0 +1,16 @@
+# OpenAI配置
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_MODEL=gpt-3.5-turbo
+
+# 外部API配置
+BUILD_LOG_API_URL=http://localhost:8001/api/build-log
+
+# 服务器配置
+HOST=0.0.0.0
+PORT=8000
+
+# 知识库配置
+KNOWLEDGE_BASE_PATH=./knowledge_base
+
+# 流式输出配置
+STREAM_DELAY=0.05
