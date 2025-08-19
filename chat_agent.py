@@ -343,7 +343,8 @@ class ChatAgent:
                 if node_name == "intent_classification":
                     yield "正在识别用户意图..."
                 elif node_name == "request_build_log":
-                    if hasattr(node_state, 'cd_inst_id') and node_state.cd_inst_id:
+                    if hasattr(node_state, 'cd_inst_id'):
+                        #if node_state.cd_inst_id:
                         yield f"检测到流水线实例ID: {node_state.cd_inst_id}"
                     else:
                         yield "正在请求用户提供流水线实例ID..."

@@ -36,16 +36,31 @@ async def chat_endpoint(request: ChatRequest):
         if not request.session_id:
             request.session_id = str(uuid.uuid4())
         
+        # 解析message中的JSON参数
+        try:
+            message_data = json.loads(request.message)
+            problem_type = message_data.get("problemType")
+            cd_inst_id = message_data.get("cdInstId")
+            problem_desc = message_data.get("problemDesc")
+            # 提取实际的消息内容，如果没有单独的content字段，使用problemDesc作为消息内容
+            actual_message = message_data.get("content", problem_desc or request.message)
+        except json.JSONDecodeError:
+            # 如果message不是JSON格式，使用原始message
+            actual_message = request.message
+            problem_type = None
+            cd_inst_id = None
+            problem_desc = None
+        
         async def generate_response():
             """生成流式响应"""
             try:
                 # 流式处理消息
                 async for chunk in chat_agent.process_streaming_message(
-                    request.message, 
+                    actual_message, 
                     request.session_id,
-                    request.problemType,
-                    request.cdInstId,
-                    request.problemDesc
+                    problem_type,
+                    cd_inst_id,
+                    problem_desc
                 ):
                     # 返回JSON格式的流式数据
                     yield f"data: {json.dumps({'chunk': chunk, 'session_id': request.session_id})}\n\n"

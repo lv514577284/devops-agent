@@ -73,8 +73,12 @@ STREAM_DELAY=0.05
 # 使用虚拟环境中的uvicorn
 myenv\Scripts\uvicorn.exe api_server:app --host 0.0.0.0 --port 8000 --reload
 
+
 # 或者直接使用uvicorn（如果已全局安装）
 uvicorn api_server:app --host 0.0.0.0 --port 8000 --reload
+
+#vscode中debug的方式
+1.创建.vscode/launch.json文件（已创建） 2.点击F5键启动  3.打断点，调用接口
 ```
 
 ### 5. 访问系统
