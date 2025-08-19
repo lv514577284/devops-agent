@@ -42,8 +42,8 @@ async def chat_endpoint(request: ChatRequest):
             problem_type = message_data.get("problemType")
             cd_inst_id = message_data.get("cdInstId")
             problem_desc = message_data.get("problemDesc")
-            # 提取实际的消息内容，如果没有单独的content字段，使用problemDesc作为消息内容
-            actual_message = message_data.get("content", problem_desc or request.message)
+            # 使用problemDesc作为实际消息内容，如果没有则使用原始message
+            actual_message = problem_desc if problem_desc else request.message
         except json.JSONDecodeError:
             # 如果message不是JSON格式，使用原始message
             actual_message = request.message
@@ -54,7 +54,10 @@ async def chat_endpoint(request: ChatRequest):
         async def generate_response():
             """生成流式响应"""
             try:
+                print(f"开始处理流式消息: session_id={request.session_id}, message={actual_message[:50]}...")
+                
                 # 流式处理消息
+                chunk_count = 0
                 async for chunk in chat_agent.process_streaming_message(
                     actual_message, 
                     request.session_id,
@@ -62,14 +65,20 @@ async def chat_endpoint(request: ChatRequest):
                     cd_inst_id,
                     problem_desc
                 ):
+                    chunk_count += 1
+                    print(f"生成第{chunk_count}个chunk: {chunk[:50]}...")
                     # 返回JSON格式的流式数据
                     yield f"data: {json.dumps({'chunk': chunk, 'session_id': request.session_id})}\n\n"
                     await asyncio.sleep(config.STREAM_DELAY)  # 控制输出速度
                 
+                print(f"流式处理完成，共生成{chunk_count}个chunk")
                 # 发送完成信号
                 yield f"data: {json.dumps({'complete': True, 'session_id': request.session_id})}\n\n"
                 
             except Exception as e:
+                print(f"流式处理出错: {e}")
+                import traceback
+                traceback.print_exc()
                 # 发送错误信息
                 yield f"data: {json.dumps({'error': str(e), 'session_id': request.session_id})}\n\n"
         
@@ -84,6 +93,9 @@ async def chat_endpoint(request: ChatRequest):
         )
         
     except Exception as e:
+        print(f"API处理出错: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.websocket("/ws/{session_id}")

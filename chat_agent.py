@@ -6,6 +6,8 @@ from intent_classifier import IntentClassifier
 from build_log_service import BuildLogService
 from knowledge_base import KnowledgeBase
 from llm_service import LLMService
+from database_service import DatabaseService
+from database_checkpointer import DatabaseCheckpointer
 import uuid
 import asyncio
 
@@ -16,14 +18,17 @@ class ChatAgent:
         self.knowledge_base = KnowledgeBase()
         self.llm_service = LLMService()
         
+        # 初始化数据库服务
+        self.db_service = DatabaseService()
+        
         # 创建状态图
         self.graph = self.create_graph()
         
-        # 创建内存保存器
-        self.memory = MemorySaver()
+        # 创建数据库保存器
+        self.checkpointer = DatabaseCheckpointer(self.db_service)
         
         # 编译图
-        self.app = self.graph.compile(checkpointer=self.memory)
+        self.app = self.graph.compile(checkpointer=self.checkpointer)
     
     def create_graph(self) -> StateGraph:
         """创建LangGraph状态图"""
@@ -285,7 +290,7 @@ class ChatAgent:
             session_id = str(uuid.uuid4())
         
         # 使用完整的LangGraph工作流处理
-        config = {"configurable": {"thread_id": session_id}}
+        config = {"configurable": {"session_id": session_id}}
         
         # 添加用户消息到状态
         state = ConversationState(session_id=session_id)
@@ -312,7 +317,7 @@ class ChatAgent:
             session_id = str(uuid.uuid4())
         
         # 创建或获取会话状态
-        config = {"configurable": {"thread_id": session_id}}
+        config = {"configurable": {"session_id": session_id}}
         
         # 添加用户消息到状态
         state = ConversationState(session_id=session_id)

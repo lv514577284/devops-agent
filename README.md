@@ -67,21 +67,51 @@ KNOWLEDGE_BASE_PATH=./knowledge_base
 STREAM_DELAY=0.05
 ```
 
-### 4. 启动系统
+### 4. 数据库配置
+
+系统现在支持MySQL数据库存储会话历史。请确保：
+
+1. **MySQL服务已启动**
+2. **创建数据库**：
+   ```sql
+   CREATE DATABASE mydatabase CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   ```
+3. **安装MySQL依赖**：
+   ```bash
+   myenv\Scripts\pip install mysql-connector-python
+   ```
+
+数据库连接配置在 `database_service.py` 中：
+```python
+config = {
+    'host': 'localhost',
+    'port': 3306,
+    'user': 'root',
+    'password': 'Paomoxiashang0.',
+    'database': 'mydatabase'
+}
+```
+
+### 5. 启动系统
 
 ```bash
 # 使用虚拟环境中的uvicorn
 myenv\Scripts\uvicorn.exe api_server:app --host 0.0.0.0 --port 8000 --reload
 
-
 # 或者直接使用uvicorn（如果已全局安装）
 uvicorn api_server:app --host 0.0.0.0 --port 8000 --reload
 
-#vscode中debug的方式
+# vscode中debug的方式
 1.创建.vscode/launch.json文件（已创建） 2.点击F5键启动  3.打断点，调用接口
+
+# 杀死当前的服务
+taskkill /f /im python.exe
+
+# 测试数据库功能
+python test_database.py
 ```
 
-### 5. 访问系统
+### 6. 访问系统
 
 打开浏览器访问：http://localhost:8000
 
@@ -98,6 +128,9 @@ build_agent_langgraph/
 ├── build_log_service.py    # 构建日志服务
 ├── knowledge_base.py       # 知识库服务
 ├── llm_service.py          # 大模型服务
+├── database_service.py     # 数据库服务
+├── database_checkpointer.py # 数据库检查点保存器
+├── test_database.py        # 数据库功能测试
 ├── requirements.txt        # 依赖文件
 ├── README.md              # 项目文档
 ├── env_example.txt         # 环境变量示例
@@ -138,6 +171,12 @@ build_agent_langgraph/
 - 自动从用户消息中提取数字ID（6位或更多数字）
 - 支持多种ID格式
 - 智能确认和继续处理
+
+### 数据库持久化存储
+- 会话历史自动保存到MySQL数据库
+- 支持多轮对话状态恢复
+- 会话数据持久化，服务重启后不丢失
+- 支持会话列表查询和管理
 
 ### 1. LangGraph智能体 (`chat_agent.py`)
 

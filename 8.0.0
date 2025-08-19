@@ -1,0 +1,6 @@
+Collecting mysql-connector-python
+  Using cached mysql_connector_python-9.4.0-cp313-cp313-win_amd64.whl.metadata (7.7 kB)
+Downloading mysql_connector_python-9.4.0-cp313-cp313-win_amd64.whl (16.4 MB)
+   ---------------------------------------- 16.4/16.4 MB 3.9 MB/s eta 0:00:00
+Installing collected packages: mysql-connector-python
+Successfully installed mysql-connector-python-9.4.0
