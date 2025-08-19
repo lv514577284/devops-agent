@@ -31,43 +31,44 @@ async def get_chat_page(request: Request):
 
 @app.post("/api/chat")
 async def chat_endpoint(request: ChatRequest):
-    """聊天接口 - 流式输出"""
+    """聊天接口 - 流式返回"""
     try:
         if not request.session_id:
             request.session_id = str(uuid.uuid4())
         
-        print(f"收到API请求: {request.message}")
-        print(f"会话ID: {request.session_id}")
-        
-        # 使用流式处理
-        async def generate_stream():
+        async def generate_response():
+            """生成流式响应"""
             try:
-                async for chunk in chat_agent.process_streaming_message(request.message, request.session_id):
-                    if chunk:
-                        # 发送处理步骤或内容
-                        yield f"data: {json.dumps({'type': 'chunk', 'content': chunk, 'session_id': request.session_id})}\n\n"
+                # 流式处理消息
+                async for chunk in chat_agent.process_streaming_message(
+                    request.message, 
+                    request.session_id,
+                    request.problemType,
+                    request.cdInstId,
+                    request.problemDesc
+                ):
+                    # 返回JSON格式的流式数据
+                    yield f"data: {json.dumps({'chunk': chunk, 'session_id': request.session_id})}\n\n"
+                    await asyncio.sleep(config.STREAM_DELAY)  # 控制输出速度
                 
                 # 发送完成信号
-                yield f"data: {json.dumps({'type': 'complete', 'session_id': request.session_id})}\n\n"
+                yield f"data: {json.dumps({'complete': True, 'session_id': request.session_id})}\n\n"
                 
             except Exception as e:
-                print(f"流式处理错误: {e}")
-                yield f"data: {json.dumps({'type': 'error', 'content': str(e), 'session_id': request.session_id})}\n\n"
+                # 发送错误信息
+                yield f"data: {json.dumps({'error': str(e), 'session_id': request.session_id})}\n\n"
         
         return StreamingResponse(
-            generate_stream(),
+            generate_response(),
             media_type="text/plain",
             headers={
                 "Cache-Control": "no-cache",
                 "Connection": "keep-alive",
-                "Content-Type": "text/event-stream",
+                "Content-Type": "text/event-stream"
             }
         )
         
     except Exception as e:
-        print(f"API错误: {e}")
-        print(f"错误类型: {type(e)}")
-        print(f"错误详情: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.websocket("/ws/{session_id}")
@@ -93,29 +94,21 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 "session_id": session_id
             }))
             
-            try:
-                # 使用流式处理方式
-                async for chunk in chat_agent.process_streaming_message(user_message, session_id):
-                    # 发送流式数据
-                    await websocket.send_text(json.dumps({
-                        "type": "chunk",
-                        "content": chunk,
-                        "session_id": session_id
-                    }))
-                    await asyncio.sleep(0.05)  # 控制输出速度
-                
-                # 发送完成信号
+            # 流式处理消息
+            async for chunk in chat_agent.process_streaming_message(user_message, session_id):
                 await websocket.send_text(json.dumps({
-                    "type": "complete",
+                    "type": "chunk",
+                    "content": chunk,
                     "session_id": session_id
                 }))
-                
-            except Exception as e:
-                await websocket.send_text(json.dumps({
-                    "type": "error",
-                    "content": f"处理失败: {str(e)}",
-                    "session_id": session_id
-                }))
+                await asyncio.sleep(config.STREAM_DELAY)  # 控制输出速度
+            
+            # 发送完成信号
+            await websocket.send_text(json.dumps({
+                "type": "complete",
+                "content": "",
+                "session_id": session_id
+            }))
             
     except WebSocketDisconnect:
         if session_id in active_connections:

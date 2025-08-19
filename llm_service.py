@@ -55,9 +55,32 @@ class LLMService:
         
         return "\n".join(context_parts)
     
-    async def generate_response(self, state: ConversationState, user_question: str) -> str:
+    async def generate_response(self, state: ConversationState, user_question: str, context_info: List[str] = None) -> str:
         """生成回答"""
-        context = self.format_context(state)
+        # 构建上下文信息
+        context_parts = []
+        
+        # 添加自定义上下文信息
+        if context_info:
+            context_parts.extend(context_info)
+        
+        # 添加知识库搜索结果
+        if state.knowledge_base_results:
+            context_parts.append("相关知识点：")
+            for i, result in enumerate(state.knowledge_base_results[:3], 1):
+                context_parts.append(f"{i}. 问题：{result['question']}")
+                context_parts.append(f"   答案：{result['answer']}")
+        
+        # 添加构建错误信息
+        if state.build_errors:
+            context_parts.append(f"构建错误关键字：{', '.join(state.build_errors)}")
+        
+        # 添加对话历史
+        if state.messages:
+            context_parts.append("对话历史：")
+            context_parts.append(state.get_context())
+        
+        context = "\n".join(context_parts)
         
         prompt = f"""系统提示：{self.system_prompt}
 
@@ -106,13 +129,13 @@ class LLMService:
             yield "抱歉，我暂时无法回答您的问题，请稍后再试。"
     
     async def generate_build_log_request(self) -> str:
-        """生成请求构建日志链接的消息"""
-        return """我检测到您的问题与构建相关。为了更好地帮助您解决问题，请提供构建日志的链接。
+        """生成请求流水线实例ID的消息"""
+        return """我检测到您的问题与构建相关。为了更好地帮助您解决问题，请提供流水线实例ID (cdInstId)。
 
-构建日志链接通常可以从以下地方获取：
+流水线实例ID通常可以从以下地方获取：
 - Jenkins构建页面
 - GitLab CI/CD流水线
 - GitHub Actions
 - 其他CI/CD平台
 
-请将构建日志链接粘贴在下方，我将分析其中的错误信息并为您提供解决方案。"""
+请将流水线实例ID粘贴在下方，我将查询相关的构建日志错误信息并为您提供解决方案。"""

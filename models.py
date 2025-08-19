@@ -35,6 +35,9 @@ class ConversationState(BaseModel):
     knowledge_base_results: List[Dict[str, Any]] = []
     waiting_for_build_log: bool = False
     conversation_history: List[Dict[str, Any]] = []
+    problem_type: Optional[str] = None
+    cd_inst_id: Optional[str] = None
+    problem_desc: Optional[str] = None
     
     def add_message(self, role: MessageRole, content: str):
         message = Message(role=role, content=content)
@@ -51,6 +54,9 @@ class ConversationState(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
+    problemType: Optional[str] = None
+    cdInstId: Optional[str] = None
+    problemDesc: Optional[str] = None
 
 class ChatResponse(BaseModel):
     session_id: str

@@ -32,8 +32,8 @@ class ChatAgent:
         # 添加节点
         workflow.add_node("intent_classification", self.intent_classification_node)
         workflow.add_node("request_build_log", self.request_build_log_node)
-        workflow.add_node("extract_build_log", self.extract_build_log_node)
         workflow.add_node("query_build_errors", self.query_build_errors_node)
+        workflow.add_node("wait_for_inst_id", self.wait_for_inst_id_node)
         workflow.add_node("search_knowledge_base", self.search_knowledge_base_node)
         workflow.add_node("generate_response", self.generate_response_node)
         
@@ -54,17 +54,17 @@ class ChatAgent:
             "request_build_log",
             self.route_after_build_log_request,
             {
-                "has_url": "extract_build_log",
-                "no_url": END
+                "has_inst_id": "query_build_errors",
+                "no_inst_id": "wait_for_inst_id"
             }
         )
         
         workflow.add_conditional_edges(
-            "extract_build_log",
-            self.route_after_extract_build_log,
+            "wait_for_inst_id",
+            self.route_after_wait_for_inst_id,
             {
-                "extracted": "query_build_errors",
-                "not_extracted": "request_build_log"
+                "got_inst_id": "request_build_log",
+                "still_waiting": END
             }
         )
         
@@ -79,6 +79,14 @@ class ChatAgent:
         """意图识别节点"""
         print("正在识别用户意图...")
         
+        # 如果提供了问题类型，直接使用
+        if state.problem_type:
+            if state.problem_type == "构建":
+                state.current_intent = IntentType.BUILD
+                print(f"根据问题类型识别到意图: {state.current_intent.value}")
+                return state
+        
+        # 否则从消息内容识别意图
         if not state.messages:
             return state
         
@@ -92,49 +100,19 @@ class ChatAgent:
     
     async def request_build_log_node(self, state: ConversationState) -> ConversationState:
         """请求构建日志节点"""
-        print("正在检查用户消息中是否包含构建日志链接...")
+        print("正在检查构建日志信息...")
         
-        if not state.messages:
+        # 检查是否提供了流水线实例ID
+        if state.cd_inst_id:
+            print(f"检测到流水线实例ID: {state.cd_inst_id}")
+            build_errors = await self.build_log_service.get_build_log_errors_by_inst_id(state.cd_inst_id)
+            state.build_errors = build_errors
+            print(f"查询到构建日志错误关键字: {build_errors}")
             return state
         
-        # 检查用户消息中是否已经包含构建日志链接
-        user_message = state.messages[-1].content
-        build_log_url = self.intent_classifier.extract_build_log_url(user_message)
-        
-        if build_log_url:
-            # 用户已经提供了构建日志链接，直接提取并跳过请求步骤
-            print(f"检测到用户已提供构建日志链接: {build_log_url}")
-            state.build_log_url = build_log_url
-            state.waiting_for_build_log = False
-            
-            # 生成一个确认消息而不是请求消息
-            confirm_message = f"我检测到您提供的构建日志链接: {build_log_url}。正在分析构建日志中的错误信息..."
-            state.add_message(MessageRole.ASSISTANT, confirm_message)
-        else:
-            # 用户没有提供构建日志链接，请求用户提供
-            print("用户消息中未找到构建日志链接，请求用户提供...")
-            request_message = await self.llm_service.generate_build_log_request()
-            state.add_message(MessageRole.ASSISTANT, request_message)
-            state.waiting_for_build_log = True
-        
-        return state
-    
-    async def extract_build_log_node(self, state: ConversationState) -> ConversationState:
-        """提取构建日志链接节点"""
-        print("正在提取构建日志链接...")
-        
-        if not state.messages:
-            return state
-        
-        user_message = state.messages[-1].content
-        build_log_url = self.intent_classifier.extract_build_log_url(user_message)
-        
-        if build_log_url:
-            state.build_log_url = build_log_url
-            state.waiting_for_build_log = False
-            print(f"提取到构建日志链接: {build_log_url}")
-        else:
-            print("未找到构建日志链接")
+        # 如果没有提供实例ID，设置等待状态
+        print("未检测到流水线实例ID，设置等待状态...")
+        state.waiting_for_build_log = True
         
         return state
     
@@ -142,14 +120,50 @@ class ChatAgent:
         """查询构建错误节点"""
         print("正在查询构建日志中的错误关键字...")
         
-        if not state.build_log_url:
+        # 如果已经有构建错误信息，直接返回
+        if state.build_errors:
+            print(f"已有构建错误信息: {state.build_errors}")
             return state
         
-        # 使用模拟服务进行测试，实际使用时替换为真实API调用
-        build_errors = await self.build_log_service.mock_query_build_errors(state.build_log_url)
+        # 如果没有实例ID，无法查询
+        if not state.cd_inst_id:
+            print("没有实例ID，无法查询构建错误")
+            return state
+        
+        # 查询构建日志错误
+        build_errors = await self.build_log_service.get_build_log_errors_by_inst_id(state.cd_inst_id)
         state.build_errors = build_errors
         
         print(f"查询到错误关键字: {build_errors}")
+        
+        return state
+    
+    async def wait_for_inst_id_node(self, state: ConversationState) -> ConversationState:
+        """等待用户提供实例ID节点"""
+        print("正在等待用户提供流水线实例ID...")
+        
+        # 检查用户最新消息中是否包含实例ID
+        if state.messages:
+            user_message = state.messages[-1].content
+            
+            # 简单的实例ID提取逻辑（可以根据需要改进）
+            import re
+            # 匹配数字ID模式
+            inst_id_pattern = r'\b\d{6,}\b'  # 匹配6位或更多数字
+            matches = re.findall(inst_id_pattern, user_message)
+            
+            if matches:
+                # 假设第一个匹配的数字就是实例ID
+                state.cd_inst_id = matches[0]
+                print(f"从用户消息中提取到实例ID: {state.cd_inst_id}")
+                
+                # 添加确认消息
+                confirm_message = f"已获取到流水线实例ID: {state.cd_inst_id}，正在查询构建日志错误信息..."
+                state.add_message(MessageRole.ASSISTANT, confirm_message)
+            else:
+                # 继续请求实例ID
+                request_message = await self.llm_service.generate_build_log_request()
+                state.add_message(MessageRole.ASSISTANT, request_message)
         
         return state
     
@@ -157,17 +171,26 @@ class ChatAgent:
         """搜索知识库节点"""
         print("正在查询知识库...")
         
-        if not state.messages:
-            return state
+        # 确定搜索关键词
+        search_keywords = []
         
-        user_question = state.messages[-1].content
+        # 如果有问题描述，使用问题描述
+        if state.problem_desc:
+            search_keywords.append(state.problem_desc)
+        elif state.messages:
+            search_keywords.append(state.messages[-1].content)
+        
+        # 如果是构建类型的问题，添加构建错误信息
+        if state.current_intent == IntentType.BUILD and state.build_errors:
+            search_keywords.extend(state.build_errors)
+        
+        # 组合搜索关键词
+        combined_query = " ".join(search_keywords)
+        print(f"知识库搜索关键词: {combined_query}")
         
         try:
-            # 根据意图和构建错误搜索知识库
-            if state.current_intent == IntentType.BUILD and state.build_errors:
-                results = self.knowledge_base.search_knowledge(user_question, state.build_errors)
-            else:
-                results = self.knowledge_base.search_knowledge(user_question)
+            # 搜索知识库
+            results = self.knowledge_base.search_knowledge(combined_query)
             
             # 确保knowledge_base_results属性存在
             if not hasattr(state, 'knowledge_base_results'):
@@ -186,11 +209,30 @@ class ChatAgent:
         """生成回答节点"""
         print("正在生成回答...")
         
-        if not state.messages:
-            return state
+        # 确定用户问题
+        user_question = ""
+        if state.problem_desc:
+            user_question = state.problem_desc
+        elif state.messages:
+            user_question = state.messages[-1].content
         
-        user_question = state.messages[-1].content
-        response = await self.llm_service.generate_response(state, user_question)
+        # 构建上下文信息
+        context_info = []
+        
+        # 添加问题描述
+        if state.problem_desc:
+            context_info.append(f"用户问题描述: {state.problem_desc}")
+        
+        # 如果是构建类型的问题，添加构建错误信息
+        if state.current_intent == IntentType.BUILD and state.build_errors:
+            context_info.append(f"构建日志错误关键字: {', '.join(state.build_errors)}")
+        
+        # 添加知识库搜索结果
+        if state.knowledge_base_results:
+            context_info.append(f"知识库相关内容: {state.knowledge_base_results}")
+        
+        # 生成回答
+        response = await self.llm_service.generate_response(state, user_question, context_info)
         
         # 打印生成的回答内容
         print(f"生成的回答内容: {response}")
@@ -210,34 +252,34 @@ class ChatAgent:
     
     def route_after_build_log_request(self, state: ConversationState) -> str:
         """构建日志请求后的路由"""
-        # 如果已经设置了构建日志URL，说明用户已经提供了链接
-        if state.build_log_url:
-            return "has_url"
+        # 如果已经设置了构建错误，说明已经查询到了错误信息
+        if state.build_errors:
+            return "has_inst_id"
         
-        # 如果还在等待构建日志，说明用户没有提供链接
+        # 如果还在等待构建日志，说明用户没有提供实例ID
         if state.waiting_for_build_log:
-            return "no_url"
+            return "no_inst_id"
         
-        # 检查用户消息中是否包含构建日志链接
-        if not state.messages:
-            return "no_url"
-        
-        user_message = state.messages[-1].content
-        build_log_url = self.intent_classifier.extract_build_log_url(user_message)
-        
-        if build_log_url:
-            return "has_url"
+        # 检查是否提供了实例ID
+        if state.cd_inst_id:
+            return "has_inst_id"
         else:
-            return "no_url"
+            return "no_inst_id"
     
-    def route_after_extract_build_log(self, state: ConversationState) -> str:
-        """提取构建日志后的路由"""
-        if state.build_log_url:
-            return "extracted"
+    def route_after_wait_for_inst_id(self, state: ConversationState) -> str:
+        """等待实例ID后的路由"""
+        # 如果已经获取到实例ID，继续处理
+        if state.cd_inst_id:
+            return "got_inst_id"
         else:
-            return "not_extracted"
+            # 继续等待
+            return "still_waiting"
     
-    async def process_message(self, message: str, session_id: str = None) -> ConversationState:
+
+    
+    async def process_message(self, message: str, session_id: str = None, 
+                            problem_type: str = None, cd_inst_id: str = None, 
+                            problem_desc: str = None) -> ConversationState:
         """处理用户消息"""
         if not session_id:
             session_id = str(uuid.uuid4())
@@ -249,12 +291,22 @@ class ChatAgent:
         state = ConversationState(session_id=session_id)
         state.add_message(MessageRole.USER, message)
         
+        # 设置新的字段
+        if problem_type:
+            state.problem_type = problem_type
+        if cd_inst_id:
+            state.cd_inst_id = cd_inst_id
+        if problem_desc:
+            state.problem_desc = problem_desc
+        
         # 运行完整的图处理流程
         result = await self.app.ainvoke(state, config)
         
         return result
     
-    async def process_streaming_message(self, message: str, session_id: str = None):
+    async def process_streaming_message(self, message: str, session_id: str = None,
+                                      problem_type: str = None, cd_inst_id: str = None,
+                                      problem_desc: str = None):
         """处理流式消息"""
         if not session_id:
             session_id = str(uuid.uuid4())
@@ -265,6 +317,14 @@ class ChatAgent:
         # 添加用户消息到状态
         state = ConversationState(session_id=session_id)
         state.add_message(MessageRole.USER, message)
+        
+        # 设置新的字段
+        if problem_type:
+            state.problem_type = problem_type
+        if cd_inst_id:
+            state.cd_inst_id = cd_inst_id
+        if problem_desc:
+            state.problem_desc = problem_desc
         
         # 保存最后一个有效的状态
         last_valid_state = state
@@ -283,12 +343,15 @@ class ChatAgent:
                 if node_name == "intent_classification":
                     yield "正在识别用户意图..."
                 elif node_name == "request_build_log":
-                    if hasattr(node_state, 'build_log_url') and node_state.build_log_url:
-                        yield f"检测到构建日志链接: {node_state.build_log_url}"
+                    if hasattr(node_state, 'cd_inst_id') and node_state.cd_inst_id:
+                        yield f"检测到流水线实例ID: {node_state.cd_inst_id}"
                     else:
-                        yield "正在请求用户提供构建日志链接..."
-                elif node_name == "extract_build_log":
-                    yield "正在提取构建日志链接..."
+                        yield "正在请求用户提供流水线实例ID..."
+                elif node_name == "wait_for_inst_id":
+                    if hasattr(node_state, 'cd_inst_id') and node_state.cd_inst_id:
+                        yield f"已获取到实例ID: {node_state.cd_inst_id}"
+                    else:
+                        yield "正在等待用户提供流水线实例ID..."
                 elif node_name == "query_build_errors":
                     yield "正在查询构建日志中的错误关键字..."
                 elif node_name == "search_knowledge_base":

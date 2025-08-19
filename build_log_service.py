@@ -58,3 +58,40 @@ class BuildLogService:
                 "Compilation error",
                 "Test failure"
             ]
+    
+    async def get_build_log_errors_by_inst_id(self, cd_inst_id: str) -> List[str]:
+        """根据流水线实例ID查询构建日志错误关键字"""
+        print(f"正在查询流水线实例 {cd_inst_id} 的构建日志错误...")
+        
+        # 模拟API调用延迟
+        await asyncio.sleep(1)
+        
+        # 模拟API调用，返回假数据
+        # 在实际环境中，这里应该调用真实的API
+        mock_errors = [
+            "Build error: Module not found",
+            "Compilation error: syntax error at line 45",
+            "Test failure: AssertionError in test_user_login",
+            "Dependency resolution failed",
+            "Timeout: Build process exceeded 30 minutes"
+        ]
+        
+        # 根据实例ID返回不同的错误（模拟）
+        if cd_inst_id == "123456":
+            return mock_errors[:3]  # 返回前3个错误
+        elif cd_inst_id == "789012":
+            return mock_errors[2:4]  # 返回第3-4个错误
+        else:
+            return mock_errors  # 返回所有错误
+        
+        # 实际API调用示例：
+        # try:
+        #     async with aiohttp.ClientSession() as session:
+        #         async with session.get(f"{self.api_url}/build-log/{cd_inst_id}") as response:
+        #             if response.status == 200:
+        #                 data = await response.json()
+        #                 return data.get('errors', [])
+        #             else:
+        #                 return [f"API调用失败: HTTP {response.status}"]
+        # except Exception as e:
+        #     return [f"API调用异常: {str(e)}"]
