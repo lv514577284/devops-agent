@@ -32,8 +32,8 @@ class ChatAgent:
         # 添加节点
         workflow.add_node("intent_classification", self.intent_classification_node)
         workflow.add_node("request_build_log", self.request_build_log_node)
-        workflow.add_node("query_build_errors", self.query_build_errors_node)
-        workflow.add_node("wait_for_inst_id", self.wait_for_inst_id_node)
+        #workflow.add_node("query_build_errors", self.query_build_errors_node)
+        #workflow.add_node("wait_for_inst_id", self.wait_for_inst_id_node)
         workflow.add_node("search_knowledge_base", self.search_knowledge_base_node)
         workflow.add_node("generate_response", self.generate_response_node)
         
@@ -50,26 +50,27 @@ class ChatAgent:
             }
         )
         
-        workflow.add_conditional_edges(
-            "request_build_log",
-            self.route_after_build_log_request,
-            {
-                "has_inst_id": "query_build_errors",
-                "no_inst_id": "wait_for_inst_id"
-            }
-        )
+        # workflow.add_conditional_edges(
+        #     "request_build_log",
+        #     self.route_after_build_log_request,
+        #     {
+        #         "has_inst_id": "query_build_errors",
+        #         "no_inst_id": "search_knowledge_base"
+        #     }
+        # )
         
-        workflow.add_conditional_edges(
-            "wait_for_inst_id",
-            self.route_after_wait_for_inst_id,
-            {
-                "got_inst_id": "request_build_log",
-                "still_waiting": END
-            }
-        )
+        # workflow.add_conditional_edges(
+        #     "wait_for_inst_id",
+        #     self.route_after_wait_for_inst_id,
+        #     {
+        #         "got_inst_id": "request_build_log",
+        #         "still_waiting": END
+        #     }
+        # )
         
         # 添加普通边
-        workflow.add_edge("query_build_errors", "search_knowledge_base")
+        workflow.add_edge("request_build_log","search_knowledge_base")
+        #workflow.add_edge("query_build_errors", "search_knowledge_base")
         workflow.add_edge("search_knowledge_base", "generate_response")
         workflow.add_edge("generate_response", END)
         
@@ -341,24 +342,13 @@ class ChatAgent:
                 
                 # 根据节点名称输出对应的处理步骤
                 if node_name == "intent_classification":
-                    yield "正在识别用户意图..."
+                    yield "已完成识别用户意图...\n"
                 elif node_name == "request_build_log":
-                    if hasattr(node_state, 'cd_inst_id'):
-                        #if node_state.cd_inst_id:
-                        yield f"检测到流水线实例ID: {node_state.cd_inst_id}"
-                    else:
-                        yield "正在请求用户提供流水线实例ID..."
-                elif node_name == "wait_for_inst_id":
-                    if hasattr(node_state, 'cd_inst_id') and node_state.cd_inst_id:
-                        yield f"已获取到实例ID: {node_state.cd_inst_id}"
-                    else:
-                        yield "正在等待用户提供流水线实例ID..."
-                elif node_name == "query_build_errors":
-                    yield "正在查询构建日志中的错误关键字..."
+                    yield "已完成查询构建日志...\n"
                 elif node_name == "search_knowledge_base":
-                    yield "正在查询知识库..."
+                    yield "已完成查询知识库...\n"
                 elif node_name == "generate_response":
-                    yield "正在生成回答..."
+                    yield "已完成生成回答...\n"
                 else:
                     yield f"正在执行: {node_name}..."
         

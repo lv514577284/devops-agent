@@ -79,6 +79,9 @@ uvicorn api_server:app --host 0.0.0.0 --port 8000 --reload
 
 #vscode中debug的方式
 1.创建.vscode/launch.json文件（已创建） 2.点击F5键启动  3.打断点，调用接口
+
+#杀死本地python服务
+tasklist | findstr "python.exe"
 ```
 
 ### 5. 访问系统
@@ -183,19 +186,16 @@ build_agent_langgraph/
 #### 构建问题（需要cdInstId）
 ```json
 {
-  "problemType": "构建",
-  "cdInstId": "123456",
-  "problemDesc": "我的构建为什么出错了",
-  "session_id": "test-session-123"
+    "message": "{\"problemType\": \"构建\", \"cdInstId\": \"123456\", \"problemDesc\": \"我的构建为什么出错了\"}",
+    "session_id": "18bf3db5-0306-446b-a9bb-8acecd073529"
 }
 ```
 
 #### 非构建问题
 ```json
 {
-  "problemType": "其他",
-  "problemDesc": "如何配置Docker？",
-  "session_id": "test-session-456"
+    "message": "{\"problemType\": \"其他\",  \"problemDesc\": \"我的为什么出错了\"}",
+    "session_id": "18bf3db5-0306-446b-a9bb-8acecd073529"
 }
 ```
 

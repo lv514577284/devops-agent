@@ -106,11 +106,9 @@ class ConversationState(BaseModel):
 当前工程实现了一个智能问答系统，工作流包含以下节点：
 
 1. **intent_classification** - 意图识别节点
-2. **request_build_log** - 请求构建日志节点
-3. **query_build_errors** - 查询构建错误节点
-4. **wait_for_inst_id** - 等待实例ID节点
-5. **search_knowledge_base** - 搜索知识库节点
-6. **generate_response** - 生成回答节点
+2. **request_build_log** - 请求构建日志节点（合并了构建日志查询功能）
+3. **search_knowledge_base** - 搜索知识库节点
+4. **generate_response** - 生成回答节点
 
 #### 1.3.2 工作流执行流程
 
@@ -122,8 +120,6 @@ def create_graph(self) -> StateGraph:
     # 添加所有节点
     workflow.add_node("intent_classification", self.intent_classification_node)
     workflow.add_node("request_build_log", self.request_build_log_node)
-    workflow.add_node("query_build_errors", self.query_build_errors_node)
-    workflow.add_node("wait_for_inst_id", self.wait_for_inst_id_node)
     workflow.add_node("search_knowledge_base", self.search_knowledge_base_node)
     workflow.add_node("generate_response", self.generate_response_node)
     
@@ -131,7 +127,19 @@ def create_graph(self) -> StateGraph:
     workflow.set_entry_point("intent_classification")
     
     # 添加条件边和普通边
-    # ... 边的定义
+    workflow.add_conditional_edges(
+        "intent_classification",
+        self.route_after_intent,
+        {
+            "build": "request_build_log",
+            "general": "search_knowledge_base"
+        }
+    )
+    
+    # 添加普通边
+    workflow.add_edge("request_build_log", "search_knowledge_base")
+    workflow.add_edge("search_knowledge_base", "generate_response")
+    workflow.add_edge("generate_response", END)
     
     return workflow
 ```
