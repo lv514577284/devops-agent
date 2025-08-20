@@ -581,9 +581,33 @@ async def process_streaming_message(self, message: str, session_id: str = None,
     # 创建或获取会话状态
     config = {"configurable": {"thread_id": session_id}}
     
-    # 添加用户消息到状态
-    state = ConversationState(session_id=session_id)
-    state.add_message(MessageRole.USER, message)  # 将新消息添加到历史
+    # 尝试从检查点恢复历史状态
+    state = None
+    try:
+        # 获取检查点中的历史状态
+        checkpoint = await self.memory.aget_tuple(config)
+        if checkpoint and checkpoint.checkpoint:
+            # 如果有历史状态，从中恢复
+            historical_state = checkpoint.checkpoint.get('channel_values', {})
+            if historical_state:
+                # 从历史状态创建ConversationState对象
+                state = ConversationState(**historical_state)
+                print(f"从检查点恢复状态，包含 {len(state.messages)} 条历史消息")
+            else:
+                # 没有历史状态，创建新的
+                state = ConversationState(session_id=session_id)
+                print("创建新的对话状态")
+        else:
+            # 没有检查点，创建新的状态
+            state = ConversationState(session_id=session_id)
+            print("创建新的对话状态")
+    except Exception as e:
+        print(f"恢复状态失败: {e}，创建新的状态")
+        state = ConversationState(session_id=session_id)
+    
+    # 添加当前用户消息
+    state.add_message(MessageRole.USER, message)
+    print(f"添加用户消息后，总消息数: {len(state.messages)}")
     
     # 设置新的字段
     if problem_type:
@@ -610,6 +634,16 @@ def __init__(self):
     self.app = self.graph.compile(checkpointer=self.memory)
 ```
 
+**状态恢复机制：**
+系统在每次处理新消息时，会先尝试从 `MemorySaver` 中恢复之前的状态：
+
+1. **检查点查询**：使用 `session_id` 作为 `thread_id` 查询检查点
+2. **状态恢复**：如果找到历史状态，从中恢复 `ConversationState` 对象
+3. **消息合并**：在恢复的状态基础上添加新的用户消息
+4. **状态保存**：处理完成后，LangGraph自动将更新后的状态保存到检查点
+
+这种机制确保了多轮对话中上下文的连续性。
+
 #### 3.3.3 上下文保持示例
 
 在多轮对话中，系统能够记住之前的对话内容：
@@ -618,15 +652,23 @@ def __init__(self):
 # 第一轮对话
 # 用户: "我的构建失败了"
 # 系统: "请提供流水线实例ID"
+# 日志: "创建新的对话状态" -> "添加用户消息后，总消息数: 1"
 
 # 第二轮对话
 # 用户: "实例ID是123456"
 # 系统: "已获取到实例ID: 123456，正在查询构建日志错误信息..."
+# 日志: "从检查点恢复状态，包含 2 条历史消息" -> "添加用户消息后，总消息数: 3"
 
 # 第三轮对话
 # 用户: "还有其他解决方案吗？"
 # 系统: 基于之前的构建错误信息和对话历史，提供更详细的解决方案
+# 日志: "从检查点恢复状态，包含 4 条历史消息" -> "添加用户消息后，总消息数: 5"
 ```
+
+**实际运行效果：**
+- 第一次调用：创建新状态，对话历史为空
+- 第二次调用：恢复包含第一次对话的状态，对话历史包含用户问题和系统回答
+- 第三次调用：恢复包含前两次对话的状态，对话历史包含完整的对话流程
 
 ### 3.4 多轮对话特点
 
@@ -634,11 +676,13 @@ def __init__(self):
 - 每轮对话都会将新消息添加到 `state.messages` 列表中
 - 系统在生成回答时会考虑完整的对话历史
 - 通过 `state.get_context()` 获取最近10条消息作为上下文
+- **状态恢复机制**：每次调用前都会从检查点恢复历史状态，确保对话连续性
 
 #### 3.4.2 状态保持
 - 会话ID确保多轮对话在同一个会话中进行
 - 所有状态信息（意图、错误信息、知识库结果等）都会保持
 - LangGraph的检查点机制确保状态在节点间正确传递
+- **自动状态管理**：LangGraph自动处理状态的保存和恢复，无需手动管理
 
 #### 3.4.3 智能上下文管理
 - 只保留最近10条消息，避免上下文过长
