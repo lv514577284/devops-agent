@@ -288,9 +288,33 @@ class ChatAgent:
         # 使用完整的LangGraph工作流处理
         config = {"configurable": {"thread_id": session_id}}
         
-        # 添加用户消息到状态
-        state = ConversationState(session_id=session_id)
+        # 尝试从检查点恢复历史状态
+        state = None
+        try:
+            # 获取检查点中的历史状态
+            checkpoint = await self.memory.aget_tuple(config)
+            if checkpoint and checkpoint.checkpoint:
+                # 如果有历史状态，从中恢复
+                historical_state = checkpoint.checkpoint.get('channel_values', {})
+                if historical_state:
+                    # 从历史状态创建ConversationState对象
+                    state = ConversationState(**historical_state)
+                    print(f"从检查点恢复状态，包含 {len(state.messages)} 条历史消息")
+                else:
+                    # 没有历史状态，创建新的
+                    state = ConversationState(session_id=session_id)
+                    print("创建新的对话状态")
+            else:
+                # 没有检查点，创建新的状态
+                state = ConversationState(session_id=session_id)
+                print("创建新的对话状态")
+        except Exception as e:
+            print(f"恢复状态失败: {e}，创建新的状态")
+            state = ConversationState(session_id=session_id)
+        
+        # 添加当前用户消息
         state.add_message(MessageRole.USER, message)
+        print(f"添加用户消息后，总消息数: {len(state.messages)}")
         
         # 设置新的字段
         if problem_type:
@@ -315,9 +339,33 @@ class ChatAgent:
         # 创建或获取会话状态
         config = {"configurable": {"thread_id": session_id}}
         
-        # 添加用户消息到状态
-        state = ConversationState(session_id=session_id)
+        # 尝试从检查点恢复历史状态
+        state = None
+        try:
+            # 获取检查点中的历史状态
+            checkpoint = await self.memory.aget_tuple(config)
+            if checkpoint and checkpoint.checkpoint:
+                # 如果有历史状态，从中恢复
+                historical_state = checkpoint.checkpoint.get('channel_values', {})
+                if historical_state:
+                    # 从历史状态创建ConversationState对象
+                    state = ConversationState(**historical_state)
+                    print(f"从检查点恢复状态，包含 {len(state.messages)} 条历史消息")
+                else:
+                    # 没有历史状态，创建新的
+                    state = ConversationState(session_id=session_id)
+                    print("创建新的对话状态")
+            else:
+                # 没有检查点，创建新的状态
+                state = ConversationState(session_id=session_id)
+                print("创建新的对话状态")
+        except Exception as e:
+            print(f"恢复状态失败: {e}，创建新的状态")
+            state = ConversationState(session_id=session_id)
+        
+        # 添加当前用户消息
         state.add_message(MessageRole.USER, message)
+        print(f"添加用户消息后，总消息数: {len(state.messages)}")
         
         # 设置新的字段
         if problem_type:
