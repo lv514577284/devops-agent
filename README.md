@@ -79,9 +79,6 @@ uvicorn api_server:app --host 0.0.0.0 --port 8000 --reload
 
 #vscode中debug的方式
 1.创建.vscode/launch.json文件（已创建） 2.点击F5键启动  3.打断点，调用接口
-
-#杀死本地python服务
-tasklist | findstr "python.exe"
 ```
 
 ### 5. 访问系统
@@ -146,12 +143,17 @@ build_agent_langgraph/
 
 使用LangGraph构建的状态图，包含以下节点：
 
-- **意图识别节点**: 分析用户问题类型
-- **构建日志请求节点**: 检查是否提供cdInstId
-- **等待实例ID节点**: 循环等待用户提供流水线实例ID
-- **构建错误查询节点**: 根据实例ID查询构建日志错误
-- **知识库搜索节点**: 查询相关知识
-- **回答生成节点**: 生成最终回答
+- **意图识别节点** (`intent_classification`): 分析用户问题类型
+- **构建日志请求节点** (`request_build_log`): 检查是否提供cdInstId并查询构建日志错误
+- **知识库搜索节点** (`search_knowledge_base`): 查询相关知识
+- **回答生成节点** (`generate_response`): 生成最终回答
+
+#### 工作流程：
+```
+意图识别 → [条件边] → 
+    ├─ 构建问题 → 构建日志请求 → 知识库搜索 → 生成回答
+    └─ 一般问题 → 知识库搜索 → 生成回答
+```
 
 ### 2. 意图识别 (`intent_classifier.py`)
 
@@ -186,16 +188,19 @@ build_agent_langgraph/
 #### 构建问题（需要cdInstId）
 ```json
 {
-    "message": "{\"problemType\": \"构建\", \"cdInstId\": \"123456\", \"problemDesc\": \"我的构建为什么出错了\"}",
-    "session_id": "18bf3db5-0306-446b-a9bb-8acecd073529"
+  "problemType": "构建",
+  "cdInstId": "123456",
+  "problemDesc": "我的构建为什么出错了",
+  "session_id": "test-session-123"
 }
 ```
 
 #### 非构建问题
 ```json
 {
-    "message": "{\"problemType\": \"其他\",  \"problemDesc\": \"我的为什么出错了\"}",
-    "session_id": "18bf3db5-0306-446b-a9bb-8acecd073529"
+  "problemType": "其他",
+  "problemDesc": "如何配置Docker？",
+  "session_id": "test-session-456"
 }
 ```
 
@@ -280,7 +285,11 @@ build_agent_langgraph/
 
 ### 日志查看
 
-启动时查看控制台输出，包含详细的处理步骤信息。
+系统会输出详细的处理日志，包括：
+- 意图识别结果
+- 构建日志查询状态
+- 知识库搜索结果
+- 回答生成过程
 
 ## 🤝 贡献指南
 
