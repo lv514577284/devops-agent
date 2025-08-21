@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-智能问答系统主启动文件
+智能问答系统启动文件
 """
 
 import uvicorn
-from api_server import app
-from config import config
+from devops_qa_agent.api.server import app
+from devops_qa_agent.config import config
 
 def main():
     """启动服务器"""

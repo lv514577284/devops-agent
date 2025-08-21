@@ -2,8 +2,8 @@ from typing import List, Dict, Any, AsyncGenerator
 from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema import HumanMessage, SystemMessage
-from models import ConversationState
-from config import config
+from ..models import ConversationState
+from ..config import config
 import asyncio
 
 class LLMService:

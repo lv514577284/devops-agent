@@ -1,3 +1,6 @@
+"""
+主配置文件
+"""
 import os
 from typing import Optional
 
@@ -10,7 +13,7 @@ class Config:
     BUILD_LOG_API_URL: str = os.getenv("BUILD_LOG_API_URL", "http://localhost:8001/api/build-log")
     
     # 知识库配置
-    KNOWLEDGE_BASE_PATH: str = os.getenv("KNOWLEDGE_BASE_PATH", "./knowledge_base")
+    KNOWLEDGE_BASE_PATH: str = os.getenv("KNOWLEDGE_BASE_PATH", "./devops_qa_agent/knowledge/data")
     
     # 服务器配置
     HOST: str = os.getenv("HOST", "127.0.0.1")

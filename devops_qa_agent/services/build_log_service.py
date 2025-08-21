@@ -1,7 +1,7 @@
 import aiohttp
 import asyncio
 from typing import List, Dict, Any
-from config import config
+from ..config import config
 
 class BuildLogService:
     def __init__(self):
