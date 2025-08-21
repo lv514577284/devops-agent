@@ -1,8 +1,8 @@
 from typing import Dict, Any
 from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
-from models import IntentType
-from config import config
+from ..models import IntentType
+from ..config import config
 
 class IntentClassifier:
     def __init__(self):

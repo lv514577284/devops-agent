@@ -1,11 +1,11 @@
 from typing import Dict, Any, List
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
-from models import ConversationState, IntentType, MessageRole
-from intent_classifier import IntentClassifier
-from build_log_service import BuildLogService
-from knowledge_base import KnowledgeBase
-from llm_service import LLMService
+from ..models import ConversationState, IntentType, MessageRole
+from .intent_service import IntentClassifier
+from .build_log_service import BuildLogService
+from ..knowledge.base import KnowledgeBase
+from .llm_service import LLMService
 import uuid
 import asyncio
 

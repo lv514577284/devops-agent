@@ -1,6 +1,6 @@
-# 智能问答系统
+# DevOps QA Agent - 智能问答系统
 
-基于LangGraph构建的智能问答系统，支持多轮对话、意图识别、构建日志分析和知识库查询。系统能够根据问题类型智能处理：构建类型问题需要流水线实例ID，非构建类型问题直接查询知识库。
+一个基于LangGraph和FastAPI的智能问答系统，专门用于解决DevOps相关问题。系统支持多轮对话、意图识别、构建日志分析和知识库查询。系统能够根据问题类型智能处理：构建类型问题需要流水线实例ID，非构建类型问题直接查询知识库。
 
 ## 🚀 功能特性
 
@@ -70,17 +70,26 @@ STREAM_DELAY=0.05
 ### 4. 启动系统
 
 ```bash
-# 使用虚拟环境中的uvicorn
-myenv\Scripts\uvicorn.exe api_server:app --host 0.0.0.0 --port 8000 --reload
+# 方式1：使用新的启动文件
+python run.py
 
+# 方式2：使用包安装方式
+pip install -e .
+devops-qa-agent
 
-# 或者直接使用uvicorn（如果已全局安装）
-uvicorn api_server:app --host 0.0.0.0 --port 8000 --reload
+# 方式3：直接使用uvicorn（推荐）
+uvicorn devops_qa_agent.api.server:app --host 0.0.0.0 --port 8000 --reload
 
-#vscode中debug的方式
-1.创建.vscode/launch.json文件（已创建） 2.点击F5键启动  3.打断点，调用接口
+# 方式4：使用启动脚本
+# Windows: 双击 start.bat 或运行 ./start.bat
+# Linux/Mac: ./start.sh
 
-#杀死本地python服务
+# 方式5：VSCode调试
+# 1. 创建.vscode/launch.json文件（已创建）
+# 2. 点击F5键启动
+# 3. 打断点，调用接口
+
+# 杀死本地python服务
 tasklist | findstr "python.exe"
 ```
 
@@ -91,13 +100,48 @@ tasklist | findstr "python.exe"
 ## 📁 项目结构
 
 ```
-build_agent_langgraph/
-├── main.py                 # 主启动文件
-├── api_server.py           # FastAPI服务器
-├── chat_agent.py           # LangGraph聊天智能体
-├── config.py               # 配置文件
-├── models.py               # 数据模型
-├── intent_classifier.py    # 意图识别模块
+devops-qa-agent/
+├── requirements.txt             # 依赖包列表
+├── setup.py                     # 包安装配置
+├── pyproject.toml              # 项目配置文件
+├── .env.example                # 环境变量示例
+├── .gitignore                  # Git忽略文件
+├── run.py                      # 启动文件
+├── start.bat                   # Windows启动脚本
+├── start.sh                    # Linux/Mac启动脚本
+├── test_imports.py             # 导入测试脚本
+├── devops_qa_agent/            # 主包目录（PEP 8标准）
+│   ├── __init__.py             # 包初始化文件
+│   ├── main.py                 # 应用入口点
+│   ├── models.py               # 数据模型
+│   ├── config/                 # 配置管理目录
+│   │   ├── __init__.py         # 配置包初始化
+│   │   └── settings.py         # 主配置文件
+│   ├── api/                    # API相关模块
+│   │   ├── __init__.py
+│   │   └── server.py           # FastAPI服务器
+│   ├── services/               # 业务逻辑服务
+│   │   ├── __init__.py
+│   │   ├── chat_service.py     # 聊天服务
+│   │   ├── llm_service.py      # LLM服务
+│   │   ├── build_log_service.py # 构建日志服务
+│   │   └── intent_service.py   # 意图识别服务
+│   ├── knowledge/              # 知识库相关
+│   │   ├── __init__.py
+│   │   ├── base.py             # 知识库基础类
+│   │   └── data/               # 知识库数据
+│   │       └── knowledge_base.json
+│   ├── static/                 # 静态资源
+│   │   ├── css/
+│   │   │   └── style.css
+│   │   └── js/
+│   │       └── chat.js
+│   └── templates/              # 模板文件
+│       └── chat.html
+├── tests/                      # 测试目录
+├── docs/                       # 文档目录
+└── scripts/                    # 脚本目录
+```
 ├── build_log_service.py    # 构建日志服务
 ├── knowledge_base.py       # 知识库服务
 ├── llm_service.py          # 大模型服务
@@ -278,9 +322,41 @@ build_agent_langgraph/
 4. **PowerShell执行策略错误**
    - 如果遇到脚本执行被禁止的错误，可以使用cmd或直接使用虚拟环境中的可执行文件
 
+5. **uvicorn模块导入错误**
+   - 错误信息：`Could not import module "api_server"`
+   - 原因：项目重构后，文件路径已更改
+   - 解决方案：使用新的启动命令 `uvicorn devops_qa_agent.api.server:app --host 0.0.0.0 --port 8000 --reload`
+
 ### 日志查看
 
 启动时查看控制台输出，包含详细的处理步骤信息。
+
+## 🛠️ 开发指南
+
+### 测试导入
+
+```bash
+python test_imports.py
+```
+
+### 代码格式化
+
+项目使用 `black` 和 `isort` 进行代码格式化：
+
+```bash
+black devops_qa_agent/
+isort devops_qa_agent/
+```
+
+### 项目结构说明
+
+项目已按照PEP 8标准重构，主要改进：
+
+- **包结构规范化**: 创建了主包 `devops_qa_agent/`，按功能模块分组
+- **文件命名规范化**: 使用下划线命名，如 `chat_service.py`
+- **模块职责分离**: 配置层、API层、服务层、知识库层分离
+- **资源文件组织**: 静态文件和模板文件移到包内部
+- **开发工具配置**: 添加了 `setup.py`、`pyproject.toml` 等配置文件
 
 ## 🤝 贡献指南
 

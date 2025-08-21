@@ -8,9 +8,9 @@ import asyncio
 from typing import Dict, List
 import uuid
 
-from models import ChatRequest, ChatResponse, StreamResponse
-from chat_agent import ChatAgent
-from config import config
+from ..models import ChatRequest, ChatResponse, StreamResponse
+from ..services.chat_service import ChatAgent
+from ..config import config
 
 app = FastAPI(title="智能问答系统", version="1.0.0")
 
@@ -21,8 +21,8 @@ chat_agent = ChatAgent()
 active_connections: Dict[str, WebSocket] = {}
 
 # 静态文件和模板
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory="devops_qa_agent/static"), name="static")
+templates = Jinja2Templates(directory="devops_qa_agent/templates")
 
 @app.get("/", response_class=HTMLResponse)
 async def get_chat_page(request: Request):

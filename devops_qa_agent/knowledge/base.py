@@ -1,7 +1,7 @@
 import json
 import os
 from typing import List, Dict, Any
-from config import config
+from ..config import config
 
 class KnowledgeBase:
     def __init__(self):
